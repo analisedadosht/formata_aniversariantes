@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Aniversariantes — Processador</title>
+<title>Formatador de Dados</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -503,6 +503,38 @@
     border-color: var(--accent);
   }
 
+  /* Category selector */
+  .category-selector {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .cat-btn {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    padding: 14px 10px;
+    background: var(--surface);
+    color: var(--muted);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.18s;
+    text-align: center;
+  }
+
+  .cat-btn:hover {
+    border-color: var(--accent);
+    color: var(--text);
+  }
+
+  .cat-btn.active {
+    background: rgba(200,255,0,0.08);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
   /* Scrollbar */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: var(--surface); }
@@ -515,8 +547,8 @@
 
   <header>
     <div class="label-tag">Processador de Dados</div>
-    <h1>Aniversari<span>antes</span></h1>
-    <p class="subtitle">Faça upload da planilha Excel, processe os dados de celulares e exporte o CSV formatado pronto para uso.</p>
+    <h1>Formatador <span>de Dados</span></h1>
+    <p class="subtitle">Faça upload da planilha Excel, selecione a finalidade, processe os dados de celulares e exporte o CSV formatado pronto para uso.</p>
   </header>
 
   <!-- Drop Zone -->
@@ -542,9 +574,19 @@
   </div>
 
   <!-- Date Input -->
-  <div class="date-field">
-    <label class="date-label" for="dateInput">Data dos Aniversariantes</label>
+  <div id="dateField" class="date-field">
+    <label class="date-label" for="dateInput">Digite uma data</label>
     <input type="date" id="dateInput" class="date-input">
+  </div>
+
+  <!-- Category Selector -->
+  <div class="date-field">
+    <label class="date-label">Finalidade do arquivo</label>
+    <div class="category-selector">
+      <button class="cat-btn active" data-cat="aniversario">🎂 Aniversário</button>
+      <button class="cat-btn" data-cat="vencimento">📋 Vencimento de Receita</button>
+      <button class="cat-btn" data-cat="promocao">🏷️ Promoção</button>
+    </div>
   </div>
 
   <!-- Process Button -->
@@ -612,11 +654,26 @@
 <script>
   let processedData = [];
   let currentFile = null;
+  let currentCategory = 'aniversario';
 
   const dateInput = document.getElementById('dateInput');
 
+  // Category selector
+  document.querySelectorAll('.cat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentCategory = btn.dataset.cat;
+      const dateField = document.getElementById('dateField');
+      dateField.style.display = currentCategory === 'aniversario' ? '' : 'none';
+      if (currentCategory !== 'aniversario') dateInput.value = '';
+      updateProcessBtn();
+    });
+  });
+
   function updateProcessBtn() {
-    btnProcess.disabled = !(currentFile && dateInput.value);
+    const needsDate = currentCategory === 'aniversario';
+    btnProcess.disabled = !(currentFile && (!needsDate || dateInput.value));
   }
 
   dateInput.addEventListener('change', updateProcessBtn);
@@ -702,10 +759,13 @@
       const sheetName = workbook.SheetNames[0];
       log(`Aba encontrada: "${sheetName}"`, 'ok');
 
-      // Data informada pelo usuário (formato yyyy-mm-dd → dd/mm/yyyy)
-      const [y, m, d] = dateInput.value.split('-');
-      const dataFormatada = `${d}/${m}/${y}`;
-      log(`Data definida pelo usuário: ${dataFormatada}`, 'ok');
+      // Data informada pelo usuário (formato yyyy-mm-dd → dd/mm/yyyy) — apenas para Aniversário
+      let y = '', m = '', d = '', dataFormatada = '';
+      if (currentCategory === 'aniversario' && dateInput.value) {
+        [y, m, d] = dateInput.value.split('-');
+        dataFormatada = `${d}/${m}/${y}`;
+        log(`Data definida pelo usuário: ${dataFormatada}`, 'ok');
+      }
 
       const sheet = workbook.Sheets[sheetName];
       const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
@@ -749,15 +809,33 @@
         const primeiroNome = removerAcentos(nomeRaw.trim().split(/\s+/)[0] || '').toUpperCase();
 
         comCelular++;
-        const simKey = `aniversariante${y}Sim`;
-        const naoKey = `aniversariante${y}Nao`;
-        result.push({
-          NOME: primeiroNome,
-          TELEFONE: numero,
-          DATA: dataFormatada,
-          [simKey]: simKey,
-          [naoKey]: naoKey,
-        });
+
+        let extraCols = {};
+        if (currentCategory === 'aniversario') {
+          extraCols = {
+            NOME: primeiroNome,
+            TELEFONE: numero,
+            DATA: dataFormatada,
+            atendent: 'atendent',
+            ficaparaproxima: 'ficaparaproxima',
+          };
+        } else if (currentCategory === 'vencimento') {
+          extraCols = {
+            TELEFONE: numero,
+            NOME: primeiroNome,
+            atendent: 'atendent',
+            ficaparaproxima: 'ficaparaproxima',
+            podemosFalarFuturamente: 'podemosFalarFuturamente',
+          };
+        } else if (currentCategory === 'promocao') {
+          extraCols = {
+            TELEFONE: numero,
+            atendent: 'atendent',
+            ficaparaproxima: 'ficaparaproxima',
+          };
+        }
+
+        result.push(extraCols);
       }
 
       processedData = result;
@@ -790,15 +868,36 @@
     const PREVIEW_MAX = 20;
     const slice = data.slice(0, PREVIEW_MAX);
 
+    // Build dynamic headers from actual keys
+    const headers = data.length ? Object.keys(data[0]) : [];
+    const thead = document.querySelector('table thead tr');
+    thead.innerHTML = headers.map(h => {
+      // User-friendly label for extra cols
+      const labels = {
+        NOME: 'Nome', TELEFONE: 'Telefone', DATA: 'Data',
+        atendent: 'Atendent',
+        ficaparaproxima: 'Fica p/ Próxima',
+        podemosFalarFuturamente: 'Podemos Falar Futuramente',
+      };
+      if (labels[h]) return `<th>${labels[h]}</th>`;
+      // aniversariante cols: show just Sim / Não
+      if (h.endsWith('Sim')) return `<th>Sim</th>`;
+      if (h.endsWith('Nao')) return `<th>Não</th>`;
+      return `<th>${h}</th>`;
+    }).join('');
+
     for (const row of slice) {
       const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td class="name-cell">${row.NOME}</td>
-        <td class="phone-cell">${row.TELEFONE}</td>
-        <td class="date-cell">${row.DATA}</td>
-        <td><span class="chip" style="color:var(--success);border-color:rgba(0,255,163,0.3)">✓</span></td>
-        <td><span class="chip" style="color:var(--danger);border-color:rgba(255,77,109,0.3)">✗</span></td>
-      `;
+      tr.innerHTML = headers.map(h => {
+        if (h === 'NOME') return `<td class="name-cell">${row[h]}</td>`;
+        if (h === 'TELEFONE') return `<td class="phone-cell">${row[h]}</td>`;
+        if (h === 'DATA') return `<td class="date-cell">${row[h]}</td>`;
+        if (h.endsWith('Sim') || h === 'atendent')
+          return `<td><span class="chip" style="color:var(--success);border-color:rgba(0,255,163,0.3)">✓</span></td>`;
+        if (h.endsWith('Nao') || h === 'ficaparaproxima' || h === 'podemosFalarFuturamente')
+          return `<td><span class="chip" style="color:var(--danger);border-color:rgba(255,77,109,0.3)">✗</span></td>`;
+        return `<td>${row[h]}</td>`;
+      }).join('');
       tableBody.appendChild(tr);
     }
 
@@ -834,7 +933,10 @@
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'aniversariantes_formatados.csv';
+    const catLabels = { aniversario: 'aniversario', vencimento: 'vencimento_receita', promocao: 'promocao' };
+    const catLabel = catLabels[currentCategory] || currentCategory;
+    const dateLabel = dateInput.value.split('-').reverse().join('-');
+    a.download = `dados_formatados_${catLabel}_${dateLabel}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   });
