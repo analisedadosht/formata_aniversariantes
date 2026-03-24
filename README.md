@@ -112,7 +112,7 @@ dados_formatados_promocao_20-03-2026.csv
 
 ### Opção 1 — Acessar pelo navegador (recomendado)
 
-Acesse: [https://analisedadosht.github.io/formata_aniversariantes/](https://analisedadosht.github.io/formata_aniversariantes/)
+Acesse: [https://analisedadosht.github.io/formata_dados/](https://analisedadosht.github.io/formata_dados/)
 
 Nenhuma instalação necessária.
 
