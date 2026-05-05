@@ -548,7 +548,6 @@
   <header>
     <div class="label-tag">Processador de Dados</div>
     <h1>Formatador <span>de Dados</span></h1>
-    <h2>Desenvolvido por Lucas Almeida</h2>
     <p class="subtitle">Faça upload da planilha Excel, selecione a finalidade, processe os dados de celulares e exporte o CSV formatado pronto para uso.</p>
   </header>
 
@@ -805,6 +804,9 @@
         let numero = celulares[0].toUpperCase().replace('CEL:', '').trim();
         if (!numero.startsWith('55')) numero = '55' + numero;
         numero = numero.replace(/[\s\-\(\)]/g, '');
+
+        // Filtra apenas números com exatamente 13 caracteres
+        if (numero.length !== 13) continue;
 
         // Primeiro nome, sem acento, maiúsculo
         const primeiroNome = removerAcentos(nomeRaw.trim().split(/\s+/)[0] || '').toUpperCase();
